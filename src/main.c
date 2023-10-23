@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
 
 void print_help(void) { printf("HELP HERE"); }
 
@@ -41,21 +43,45 @@ int main(int argc, char **argv) {
   }
 
   if (message == NULL) {
-    printf("A message is required.\n");
+    perror("A message is required.\n");
     return EXIT_FAILURE;
   }
 
   if (output_file == NULL) {
-    printf("An output file is required.\n");
+    perror("An output file is required.\n");
     return EXIT_FAILURE;
   }
 
+  const size_t HOSTNAME_SIZE = 256;
+  char hostname[HOSTNAME_SIZE];
+  if ((gethostname(&hostname[0], HOSTNAME_SIZE)) == -1) {
+    perror("Failed getting system hostname");
+    return EXIT_FAILURE;
+  }
+
+  time_t t = time(NULL);
+  struct tm *tm = localtime(&t);
+  char current_time[64];
+  strftime(current_time, sizeof(current_time), "%c", tm);
+
   if (strcmp(message, "-") == 0) {
+    if (strcmp(output_file, "-") == 0) {
+      printf("%s ", current_time);
+      printf("%s ", hostname);
+      printf("[%s] ", identifier);
+      char a;
+      while ((a = fgetc(stdin)) != EOF) {
+        fputc(a, stdout);
+      }
+      return EXIT_SUCCESS;
+    }
+
     FILE *output = fopen(output_file, "a");
     if (output == NULL) {
       printf("Failed to open the file.\n");
       return EXIT_FAILURE;
     }
+    fprintf(output, "%s ", current_time);
     if (identifier != NULL) {
       fprintf(output, "[%s] ", identifier);
     }
@@ -73,17 +99,26 @@ int main(int argc, char **argv) {
   if (identifier != NULL)
     proper_size += strlen(identifier);
 
-  proper_size += strlen(message) + 1;
+  proper_size += strlen(message) + sizeof(current_time) + HOSTNAME_SIZE + 1;
 
   char *final_message = malloc(proper_size);
 
+  strcpy(final_message, current_time);
+  strcat(final_message, " ");
+  strcat(final_message, hostname);
+  strcat(final_message, " ");
+
   if (identifier != NULL) {
-    strcpy(final_message, "[");
+    strcat(final_message, "[");
     strcat(final_message, identifier);
     strcat(final_message, "] ");
-    strcat(final_message, message);
-  } else {
-    strcpy(final_message, message);
+  }
+  strcat(final_message, message);
+
+  if (strcmp(output_file, "-") == 0) {
+    printf("%s", final_message);
+    free(final_message);
+    return EXIT_SUCCESS;
   }
 
   FILE *output = fopen(output_file, "a");
