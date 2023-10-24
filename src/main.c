@@ -7,12 +7,41 @@
 #include <time.h>
 #include <unistd.h>
 
+typedef struct CLIMessage {
+  char *identifier;
+  char *output_path;
+  char *hostname;
+  char *date;
+  char *text;
+} CLIMessage;
+
+char *get_current_hostname(void) {
+  const size_t HOSTNAME_SIZE = 256;
+  char hostname[HOSTNAME_SIZE];
+  if ((gethostname(&hostname[0], HOSTNAME_SIZE)) == -1) {
+    perror("Failed getting system hostname");
+    return NULL;
+  }
+  char *ret = malloc(HOSTNAME_SIZE);
+  strcpy(ret, hostname);
+  return ret;
+}
+
+char *get_current_time(void) {
+  const size_t TIME_SIZE = 64;
+  time_t t = time(NULL);
+  struct tm *tm = localtime(&t);
+  char current_time[TIME_SIZE];
+  strftime(current_time, sizeof(current_time), "%c", tm);
+  char *ret = malloc(TIME_SIZE);
+  strcpy(ret, current_time);
+  return ret;
+}
+
 void print_help(void) { printf("HELP HERE"); }
 
 int main(int argc, char **argv) {
-  char *identifier = NULL;
-  char *output_file = NULL;
-  char *message = NULL;
+  struct CLIMessage usermessage;
 
   int option;
   while ((option = getopt(argc, argv, "f:i:m:h::")) != -1) {
@@ -21,13 +50,13 @@ int main(int argc, char **argv) {
       print_help();
       return EXIT_SUCCESS;
     case 'f':
-      output_file = optarg;
+      usermessage.output_path = optarg;
       break;
     case 'i':
-      identifier = optarg;
+      usermessage.identifier = optarg;
       break;
     case 'm':
-      message = optarg;
+      usermessage.text = optarg;
       break;
     case '?':
       if (optopt == 'f' || optopt == 'i' || optopt == 'm')
@@ -42,93 +71,44 @@ int main(int argc, char **argv) {
     }
   }
 
-  if (message == NULL) {
+  if (usermessage.text == NULL) {
     perror("A message is required.\n");
     return EXIT_FAILURE;
   }
 
-  if (output_file == NULL) {
+  if (usermessage.output_path == NULL) {
     perror("An output file is required.\n");
     return EXIT_FAILURE;
   }
 
-  const size_t HOSTNAME_SIZE = 256;
-  char hostname[HOSTNAME_SIZE];
-  if ((gethostname(&hostname[0], HOSTNAME_SIZE)) == -1) {
-    perror("Failed getting system hostname");
-    return EXIT_FAILURE;
+  usermessage.date = get_current_time();
+  usermessage.hostname = get_current_hostname();
+
+  FILE *output;
+  if (strcmp(usermessage.output_path, "-") == 0) {
+    output = stdout;
+  } else {
+    output = fopen(usermessage.output_path, "a");
   }
-
-  time_t t = time(NULL);
-  struct tm *tm = localtime(&t);
-  char current_time[64];
-  strftime(current_time, sizeof(current_time), "%c", tm);
-
-  if (strcmp(message, "-") == 0) {
-    if (strcmp(output_file, "-") == 0) {
-      printf("%s ", current_time);
-      printf("%s ", hostname);
-      printf("[%s] ", identifier);
-      char a;
-      while ((a = fgetc(stdin)) != EOF) {
-        fputc(a, stdout);
-      }
-      return EXIT_SUCCESS;
-    }
-
-    FILE *output = fopen(output_file, "a");
-    if (output == NULL) {
-      printf("Failed to open the file.\n");
-      return EXIT_FAILURE;
-    }
-    fprintf(output, "%s ", current_time);
-    if (identifier != NULL) {
-      fprintf(output, "[%s] ", identifier);
-    }
-
-    char a;
-    while ((a = fgetc(stdin)) != EOF) {
-      fputc(a, output);
-    }
-    fclose(output);
-    return EXIT_SUCCESS;
-  }
-
-  int proper_size = 0;
-
-  if (identifier != NULL)
-    proper_size += strlen(identifier);
-
-  proper_size += strlen(message) + sizeof(current_time) + HOSTNAME_SIZE + 1;
-
-  char *final_message = malloc(proper_size);
-
-  strcpy(final_message, current_time);
-  strcat(final_message, " ");
-  strcat(final_message, hostname);
-  strcat(final_message, " ");
-
-  if (identifier != NULL) {
-    strcat(final_message, "[");
-    strcat(final_message, identifier);
-    strcat(final_message, "] ");
-  }
-  strcat(final_message, message);
-
-  if (strcmp(output_file, "-") == 0) {
-    printf("%s", final_message);
-    free(final_message);
-    return EXIT_SUCCESS;
-  }
-
-  FILE *output = fopen(output_file, "a");
   if (output == NULL) {
     printf("Failed to open the file.\n");
     return EXIT_FAILURE;
   }
-  fprintf(output, "%s\n", final_message);
-  fclose(output);
-  free(final_message);
 
+  fprintf(output, "%s %s ", usermessage.date, usermessage.hostname);
+  if (usermessage.identifier != NULL) {
+    fprintf(output, "[%s] ", usermessage.identifier);
+  }
+
+  if (strcmp(usermessage.text, "-") == 0) {
+    char a;
+    while ((a = fgetc(stdin)) != EOF) {
+      fputc(a, output);
+    }
+  } else {
+    fprintf(output, "%s ", usermessage.text);
+  }
+
+  fclose(output);
   return EXIT_SUCCESS;
 }
