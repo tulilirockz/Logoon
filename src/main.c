@@ -109,6 +109,8 @@ int main(int argc, char **argv) {
     fprintf(output, "%s ", usermessage.text);
   }
 
+  free(usermessage.date);
+  free(usermessage.hostname);
   fclose(output);
   return EXIT_SUCCESS;
 }
