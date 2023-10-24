@@ -13,9 +13,10 @@ typedef struct CLIMessage {
   char *hostname;
   char *date;
   char *text;
+  int is_quiet;
 } CLIMessage;
 
-char *get_current_hostname(void) {
+char *create_hostname(void) {
   const size_t HOSTNAME_SIZE = 256;
   char hostname[HOSTNAME_SIZE];
   if ((gethostname(&hostname[0], HOSTNAME_SIZE)) == -1) {
@@ -27,7 +28,7 @@ char *get_current_hostname(void) {
   return ret;
 }
 
-char *get_current_time(void) {
+char *create_time(void) {
   const size_t TIME_SIZE = 64;
   time_t t = time(NULL);
   struct tm *tm = localtime(&t);
@@ -44,7 +45,7 @@ int main(int argc, char **argv) {
   struct CLIMessage usermessage;
 
   int option;
-  while ((option = getopt(argc, argv, "f:i:m:h::")) != -1) {
+  while ((option = getopt(argc, argv, "f:i:m:h:q::")) != -1) {
     switch (option) {
     case 'h':
       print_help();
@@ -57,6 +58,9 @@ int main(int argc, char **argv) {
       break;
     case 'm':
       usermessage.text = optarg;
+      break;
+    case 'q':
+      usermessage.is_quiet = 1;
       break;
     case '?':
       if (optopt == 'f' || optopt == 'i' || optopt == 'm')
@@ -81,9 +85,6 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  usermessage.date = get_current_time();
-  usermessage.hostname = get_current_hostname();
-
   FILE *output;
   if (strcmp(usermessage.output_path, "-") == 0) {
     output = stdout;
@@ -95,7 +96,12 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  fprintf(output, "%s %s ", usermessage.date, usermessage.hostname);
+  if (usermessage.is_quiet != 1) {
+    usermessage.date = create_time();
+    usermessage.hostname = create_hostname();
+    fprintf(output, "%s %s ", usermessage.date, usermessage.hostname);
+  }
+
   if (usermessage.identifier != NULL) {
     fprintf(output, "[%s] ", usermessage.identifier);
   }
