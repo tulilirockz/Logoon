@@ -1,48 +1,16 @@
+#include "alloc_data.h"
 #include <ctype.h>
 #include <getopt.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <unistd.h>
-
-typedef struct CLIMessage {
-  char *identifier;
-  char *output_path;
-  char *hostname;
-  char *date;
-  char *text;
-  int is_quiet;
-} CLIMessage;
-
-char *create_hostname(void) {
-  const size_t HOSTNAME_SIZE = 256;
-  char hostname[HOSTNAME_SIZE];
-  if ((gethostname(&hostname[0], HOSTNAME_SIZE)) == -1) {
-    perror("Failed getting system hostname");
-    return NULL;
-  }
-  char *ret = malloc(HOSTNAME_SIZE);
-  strcpy(ret, hostname);
-  return ret;
-}
-
-char *create_time(void) {
-  const size_t TIME_SIZE = 64;
-  time_t t = time(NULL);
-  struct tm *tm = localtime(&t);
-  char current_time[TIME_SIZE];
-  strftime(current_time, sizeof(current_time), "%c", tm);
-  char *ret = malloc(TIME_SIZE);
-  strcpy(ret, current_time);
-  return ret;
-}
 
 void print_help(void) { printf("HELP HERE"); }
 
 int main(int argc, char **argv) {
-  struct CLIMessage usermessage;
+  struct CLIMessage *usermessage =
+      (struct CLIMessage *)malloc(sizeof(struct CLIMessage));
 
   int option;
   while ((option = getopt(argc, argv, "f:i:m:h:q::")) != -1) {
@@ -51,16 +19,16 @@ int main(int argc, char **argv) {
       print_help();
       return EXIT_SUCCESS;
     case 'f':
-      usermessage.output_path = optarg;
+      usermessage->output_path = optarg;
       break;
     case 'i':
-      usermessage.identifier = optarg;
+      usermessage->identifier = optarg;
       break;
     case 'm':
-      usermessage.text = optarg;
+      usermessage->text = optarg;
       break;
     case 'q':
-      usermessage.is_quiet = 1;
+      usermessage->is_quiet = CLI_IS_QUIET;
       break;
     case '?':
       if (optopt == 'f' || optopt == 'i' || optopt == 'm')
@@ -69,55 +37,65 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Unknown option `-%c'.\n", optopt);
       else
         fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
+      free(usermessage);
       return EXIT_FAILURE;
     default:
+      free(usermessage);
       abort();
     }
   }
 
-  if (usermessage.text == NULL) {
+  if (usermessage->text == NULL) {
     perror("A message is required.\n");
+
+    free(usermessage);
     return EXIT_FAILURE;
   }
 
-  if (usermessage.output_path == NULL) {
+  if (usermessage->output_path == NULL) {
     perror("An output file is required.\n");
+
+    free(usermessage);
     return EXIT_FAILURE;
+  }
+
+  if (usermessage->is_quiet != CLI_IS_QUIET) {
+    usermessage->date = create_time();
+    usermessage->hostname = create_hostname();
+  }
+
+  char *cool_message = create_message(usermessage);
+
+  if (cool_message == NULL) {
+    perror(FAILURE_ALLOC_MEM);
+    if (usermessage->is_quiet != CLI_IS_QUIET) {
+      free(usermessage->date);
+      free(usermessage->hostname);
+    }
+
+    free(usermessage);
+    return 1;
   }
 
   FILE *output;
-  if (strcmp(usermessage.output_path, "-") == 0) {
+  if (strcmp(usermessage->output_path, "-") == 0) {
     output = stdout;
   } else {
-    output = fopen(usermessage.output_path, "a");
+    output = fopen(usermessage->output_path, "a");
   }
   if (output == NULL) {
     printf("Failed to open the file.\n");
     return EXIT_FAILURE;
   }
 
-  if (usermessage.is_quiet != 1) {
-    usermessage.date = create_time();
-    usermessage.hostname = create_hostname();
-    fprintf(output, "%s %s ", usermessage.date, usermessage.hostname);
-  }
+  fprintf(output, "%s\n", cool_message);
 
-  if (usermessage.identifier != NULL) {
-    fprintf(output, "[%s] ", usermessage.identifier);
-  }
-
-  if (strcmp(usermessage.text, "-") == 0) {
-    char a;
-    while ((a = fgetc(stdin)) != EOF) {
-      fputc(a, output);
-    }
-  } else {
-    fprintf(output, "%s ", usermessage.text);
-  }
-  fprintf(output, "\n");
-
-  free(usermessage.date);
-  free(usermessage.hostname);
   fclose(output);
+  free(cool_message);
+  if (usermessage->is_quiet != CLI_IS_QUIET) {
+    free(usermessage->date);
+    free(usermessage->hostname);
+  }
+  free(usermessage);
   return EXIT_SUCCESS;
 }
