@@ -1,5 +1,5 @@
 CC = clang
-CFLAGS = -g -Wall -Werror -Wextra -pedantic
+CFLAGS = -Wall -Werror -Wextra -pedantic
 BUILD_DIR = build
 DIST_DIR = dist
 BIN = logoon

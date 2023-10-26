@@ -6,7 +6,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-void print_help(void) { printf("HELP HERE"); }
+void print_help(void) {
+  printf("Usage: logoon [OPTION]... -m [MESSAGE] -f [FILE]\n");
+  printf("When FILE is -, write to standard output.\n"
+         "When MESSAGE is -, read standard input.\n");
+  printf("\n-f\tfile that will be written to");
+  printf("\n-i\tidentifier for program that will log");
+  printf("\n-q\tquieter logging, no date or hostname");
+  printf("\n-m\tmessage that will be written to FILE");
+  printf("\n-h\tshow this help\n");
+}
 
 int main(int argc, char **argv) {
   struct CLIMessage *usermessage =
@@ -16,7 +25,7 @@ int main(int argc, char **argv) {
   usermessage->identifier = getenv("LOGOON_IDENTIFIER");
 
   int option;
-  while ((option = getopt(argc, argv, "f:i:m:h:q::")) != -1) {
+  while ((option = getopt(argc, argv, "f:i:m:q:h::")) != -1) {
     switch (option) {
     case 'h':
       print_help();
