@@ -12,6 +12,9 @@ int main(int argc, char **argv) {
   struct CLIMessage *usermessage =
       (struct CLIMessage *)malloc(sizeof(struct CLIMessage));
 
+  usermessage->output_path = getenv("LOGOON_OUTPUT");
+  usermessage->identifier = getenv("LOGOON_IDENTIFIER");
+
   int option;
   while ((option = getopt(argc, argv, "f:i:m:h:q::")) != -1) {
     switch (option) {
