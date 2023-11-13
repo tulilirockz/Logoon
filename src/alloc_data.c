@@ -5,8 +5,10 @@
 #include <time.h>
 #include <unistd.h>
 
+#define HOSTNAME_SIZE 256
+#define TIME_SIZE 64
+
 char *create_hostname(void) {
-  const size_t HOSTNAME_SIZE = 256;
   char hostname[HOSTNAME_SIZE];
   if ((gethostname(&hostname[0], HOSTNAME_SIZE)) == -1) {
     perror("Failed getting system hostname");
@@ -22,7 +24,6 @@ char *create_hostname(void) {
 }
 
 char *create_time(void) {
-  const size_t TIME_SIZE = 64;
   time_t t = time(NULL);
   struct tm *tm = localtime(&t);
   char current_time[TIME_SIZE];
