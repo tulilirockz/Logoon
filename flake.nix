@@ -18,6 +18,9 @@
 
         installPhase = ''mkdir -p $out/bin; install -m0755 build/logoon $out/bin'';
       };
+      devShells.default = (pkgs.mkShell.override { stdenv = pkgs.llvmPackages_14.stdenv; }) {
+        packages = with pkgs; [ valgrind gdb gnumake clang-tools clangStdenv clang glibc ];
+      };
     }
   );
 }
